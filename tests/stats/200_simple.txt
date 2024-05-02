@@ -1,0 +1,14 @@
+
+========================================
+Number of indexed files: 3
+----------------------------------------
+Number of indexed articles: 589
+----------------------------------------
+TOKENS:
+	# of tokens in 'all': 103358
+----------------------------------------
+Positional queries are NOT allowed.
+========================================
+Time indexing: 1.74s.
+Time saving: 0.27s.
+

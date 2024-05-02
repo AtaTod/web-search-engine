@@ -1,0 +1,32 @@
+
+========================================
+Number of indexed files: 3
+----------------------------------------
+Number of indexed articles: 1374
+----------------------------------------
+TOKENS:
+	# of tokens in 'all': 166580
+	# of tokens in 'title': 1414
+	# of tokens in 'summary': 21696
+	# of tokens in 'section-name': 5659
+	# of tokens in 'url': 1374
+----------------------------------------
+PERMUTERMS:
+	# of permuterms in 'all': 1449963
+	# of permuterms in 'title': 11037
+	# of permuterms in 'summary': 190830
+	# of permuterms in 'section-name': 50551
+	# of permuterms in 'url': 64277
+----------------------------------------
+STEMS:
+	# of stems in 'all': 117104
+	# of stems in 'title': 1333
+	# of stems in 'summary': 13786
+	# of stems in 'section-name': 4216
+	# of stems in 'url': 1368
+----------------------------------------
+Positional queries are allowed.
+========================================
+Time indexing: 17.04s.
+Time saving: 3.42s.
+
