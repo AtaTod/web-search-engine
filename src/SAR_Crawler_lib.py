@@ -150,8 +150,38 @@ class SAR_Wiki_Crawler:
             en caso de no encontrar título o resúmen del artículo, devolverá None
 
         """
+        # Funcion auxiliar para limpiar el texto (elimina líneas vacías)
         def clean_text(txt):
             return '\n'.join(l for l in txt.split('\n') if len(l) > 0)
+        
+        # Limpiamos el texto
+        text_clean = clean_text(text)
+        
+        # Aplica la expresión regular para extraer el título y el resumen
+        title_summary_search = self.title_sum_re.search(text_clean)
+
+        # Comprobamos si la expresion regular ha encontrado el patron. Si la busqueda resultante es None,
+        # al menos el titulo o el resumen no se han encontrado, por lo que devolvemos None
+        if title_summary_search is None:
+            return None
+
+        # Si el codigo ha llegado hasta aqui, es porque el titulo y el resumen se han encontrado.
+        # Creamos el diccionario que contendrá el artículo
+        document = {}
+
+        # Extraemos titulo y resumen
+        document['url'] = url
+        document['title'] = title_summary_search.group('title')
+        document['summary'] = clean_text(title_summary_search.group('summary'))
+
+        # Extraemos el resto, donde se encuentran las secciones del articulo
+        rest = title_summary_search.group('rest')
+
+        # Inicializamos la lista de secciones que devolveremos como resultado, 
+        # dentro del diccionario del artículo. 
+        sections = []
+        # Acto seguido, buscamos las secciones.
+        sections_search = self.sections_re.finditer(rest)
 
         document = None
 
