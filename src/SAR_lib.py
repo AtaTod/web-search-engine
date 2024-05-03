@@ -235,7 +235,6 @@ class SAR_Indexer:
         for i, line in enumerate(open(filename)):
             j = self.parse_article(line)
 
-
         #
         # 
         # En la version basica solo se debe indexar el contenido "article"
@@ -391,8 +390,6 @@ class SAR_Indexer:
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
         pass
-
-
 
     def get_positionals(self, terms:str, index):
         """
