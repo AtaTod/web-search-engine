@@ -28,9 +28,11 @@ class SAR_Wiki_Crawler:
         # Expresiones regulares útiles para el parseo del documento
         self.title_sum_re = re.compile(r"##(?P<title>.+)##\n(?P<summary>((?!==.+==).+|\n)+)(?P<rest>(.+|\n)*)")
         self.sections_re = re.compile(r"==.+==\n")
-        self.section_re = re.compile(r"==(?P<name>.+)==\n(?P<text>((?!--.+--).+|\n)*)(?P<rest>(.+|\n)*)")
+        # Nota: se ha modificado respecto a la original para que contemple el caso en el que no hay subsecciones
+        self.section_re = re.compile(r"==(?P<name>.+)==\n(?P<text>((?!==.+==)(?!--.+--).+|\n)*)(?P<rest>(.+|\n)*)")
         self.subsections_re = re.compile(r"--.+--\n")
-        self.subsection_re = re.compile(r"--(?P<name>.+)--\n(?P<text>(.+|\n)*)")
+        # Nota: se ha modificado respecto a la original para que devuelva el texto restante 
+        self.subsection_re = re.compile(r"--(?P<name>.+)--\n(?P<text>((?!==.+==)(?!--.+--).+|\n)*)(?P<rest>(.+|\n)*)")
 
 
     def is_valid_url(self, url: str) -> bool:
@@ -180,14 +182,80 @@ class SAR_Wiki_Crawler:
         # Inicializamos la lista de secciones que devolveremos como resultado, 
         # dentro del diccionario del artículo. 
         sections = []
-        # Acto seguido, buscamos las secciones.
-        sections_search = self.sections_re.finditer(rest)
+        # Acto seguido, indexamos todas las secciones del artículo:
+        # Buscamos la primera sección
+        section_match = self.section_re.search(rest)
+        # Mientras haya secciones, las procesamos y añadimos a la lista de secciones
+        while section_match:
+            sections.append(self.build_section_from_match(section_match))
+            print("name:", section_match["name"])
+            print("text:", section_match["text"])
+            print("rest:", section_match["rest"])
+            section_match = self.section_re.search(section_match["rest"])
 
-        document = None
+        # Añadimos las secciones al documento
+        document["sections"] = sections
 
-        # COMPLETAR
-
+        # Finalmente devuelve el documento como diccionario
         return document
+    
+
+    def build_section_from_match(self, match: re.Match) -> Dict[str, Union[str, List]]:
+        """Construye un diccionario con la información de una sección a partir
+        de un objeto Match de una expresión regular.
+
+        Args:
+            match (re.Match): Objeto Match de una expresión regular.
+
+        Returns:
+            Dict[str, Union[str, List]]: Diccionario con la información de la sección, 
+            siguiendo el formato:
+                {
+                    "name": str,
+                    "text": str,
+                    "subsections": List[Dict[str, Union[str, List]]]
+                }
+            donde "subsections" es una lista de subsecciones, cada una con el formato
+                {
+                    "name": str,
+                    "text": str
+                }
+        """
+        # La sección se construye a partir de un diccionario.
+        section = {}
+        # Añadimos el nombre y el texto de la sección.
+        section["name"] = match["name"]
+        section["text"] = match["text"]
+
+        # Comprobamos si hay subsecciones después de la sección.
+        if (len(match["rest"]) < 5) or (match["rest"][0] != '-'):
+            # Si no hay subsecciones, devolvemos la seccion sin subsecciones
+            # (lista vacia).
+            section["subsections"] = []
+            return section
+
+        # Inicializamos la lista de subsecciones que devolveremos como resultado, 
+        # dentro del diccionario de la sección. 
+        subsections = []
+        # Acto seguido, indexamos todas las subsecciones de la sección.
+        #
+        # Buscamos la primera subsección
+        subsection_match = self.subsection_re.search(match["rest"])
+        # Mientras haya subsecciones
+        while subsection_match:
+            # Añadimos la subsección a la lista de subsecciones
+            subsections.append({
+                'name': subsection_match['name'],
+                'text': subsection_match['text']
+            })
+            # Buscamos la siguiente subsección
+            subsection_match = self.subsection_re.search(subsection_match["rest"])
+
+        # Añadimos las subsecciones a la sección
+        section["subsections"] = subsections
+
+        # Devuelve la sección como diccionario
+        return section
 
 
     def save_documents(self,
