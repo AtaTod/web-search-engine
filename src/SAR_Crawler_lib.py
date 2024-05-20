@@ -188,9 +188,6 @@ class SAR_Wiki_Crawler:
         # Mientras haya secciones, las procesamos y añadimos a la lista de secciones
         while section_match:
             sections.append(self.build_section_from_match(section_match))
-            print("name:", section_match["name"])
-            print("text:", section_match["text"])
-            print("rest:", section_match["rest"])
             section_match = self.section_re.search(section_match["rest"])
 
         # Añadimos las secciones al documento
@@ -314,9 +311,17 @@ class SAR_Wiki_Crawler:
         # URLs válidas, ya visitadas (se hayan procesado, o no, correctamente)
         visited = set()
         # URLs en cola
-        to_process = set(initial_urls)
-        # Direcciones a visitar
-        queue = [(0, "", url) for url in to_process]
+        to_process = set()
+        # Direcciones a visitar en formato (profundidad, url)
+        queue = []
+
+        # Añadimos a la cola las urls iniciales
+        for url in initial_urls:
+            if self.is_valid_url(url):
+                hq.heappush(queue, (0, url))
+                to_process.add(url)
+
+        # Ordenamos la cola como min heap
         hq.heapify(queue)
         # Buffer de documentos capturados
         documents: List[dict] = []
@@ -325,7 +330,7 @@ class SAR_Wiki_Crawler:
         # Contador del número de ficheros escritos
         files_count = 0
 
-        # En caso de que no utilicemos bach_size, asignamos None a total_files
+        # En caso de que no utilicemos batch_size, asignamos None a total_files
         # así el guardado no modificará el nombre del fichero base
         if batch_size is None:
             total_files = None
@@ -334,7 +339,71 @@ class SAR_Wiki_Crawler:
             # de guardado
             total_files = math.ceil(document_limit / batch_size)
 
-        # COMPLETAR
+        # Mientras haya urls en la cola y no se haya alcanzado el límite de documentos,
+        # seguimos procesando urls
+        while (len(queue) > 0) and (total_documents_captured < document_limit):
+            # Extraemos la url de la cola
+            depth, url = hq.heappop(queue)
+
+            # Comprobamos si hemos superado el limite de profundidad
+            if depth > max_depth_level:
+                # Hemos superado el limite de profundidad. Como lo hemos superado
+                # en la primera entrada del min heap, entonces el resto tienen como 
+                # minimo la misma profundidad. Por lo tanto, salimos del bucle 
+                # (hemos acabado de procesar).
+                break
+
+            # Eliminamos la url de la lista de urls a procesar
+            to_process.remove(url)
+
+            # Añadimos la url a lista de visitadas
+            visited.add(url)
+
+            # Obtenemos todas las urls y el texto del artículo
+            content = self.get_wikipedia_entry_content(url)
+            if content is None:
+                # No se ha podido obtener el contenido de la web
+                continue
+
+            # Parseamos el contenido del artículo
+            document = self.parse_wikipedia_textual_content(content[0], url)
+
+            # Comprobamos si se ha podido parsear el articulo
+            if document is None:
+                # Si no se ha podido parsear el articulo, lo saltamos
+                print(f"Could not parse {url}...")
+                continue
+            
+            # Añadimos el documento a la lista de documentos
+            documents.append(document)
+
+            print(f"CapTuring {url}...")
+
+            # Añadimos al heap las urls contenidas en el documento
+            for child_url in content[1]:
+                full_child_url = url + child_url
+                # Solo añadimos la url si no ha sido visitada, no está ya en la cola, y es válida
+                if (full_child_url not in visited) & (full_child_url not in to_process) & (self.is_valid_url(full_child_url)):
+                    print(f"Adding {full_child_url}\n\tfrom {url}")
+                    # Añadimos la url a la cola (y a procesados)
+                    hq.heappush(queue, (depth + 1, full_child_url))
+                    to_process.add(full_child_url)
+
+            # Incrementamos el contador de documentos capturados
+            total_documents_captured += 1
+
+            # Comprobamos si hemos alcanzado el tamaño del batch
+            if (batch_size is not None) and (len(documents) >= batch_size):
+                # Guardamos los documentos capturados
+                self.save_documents(documents, base_filename, files_count, total_files)
+                # Incrementamos el contador de archivos
+                files_count += 1
+                # Limpiamos la lista de documentos
+                documents = []
+
+        # Guardamos los documentos restantes
+        if len(documents) > 0:
+            self.save_documents(documents, base_filename, files_count, total_files)
 
 
     def wikipedia_crawling_from_url(self,
