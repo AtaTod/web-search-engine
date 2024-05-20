@@ -232,9 +232,22 @@ class SAR_Indexer:
 
 
         """
+        contador = 0
+        a = 0
         for i, line in enumerate(open(filename)):
             j = self.parse_article(line)
+            # Remove non-alphanumeric characters and make lowercase
+            clean = re.sub(r'[^a-zA-Z0-9 ]+', ' ', j['all']).lower()
 
+            for token in self.tokenize(clean):
+                if token == 'casa':
+                    a+=1
+                    print(token)
+                if token in self.index:
+                    self.index[token] += 1
+                else:
+                    self.index[token] = 1
+        print(a)
         #
         # 
         # En la version basica solo se debe indexar el contenido "article"
