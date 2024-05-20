@@ -596,7 +596,7 @@ class SAR_Indexer:
                 j += 1
             elif p1[i] < p2[j]:
                 result.append(p1[i])
-                i += 1
+                i += 1 
             else:
                 result.append(p2[j])
                 j += 1
@@ -619,11 +619,23 @@ class SAR_Indexer:
 
         """
 
-        
-        pass
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
+
+        result = []
+        i, j = 0, 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                i += 1
+                j += 1
+            elif p1[i] < p2[j]:
+                result.append(p1[i])
+                i += 1
+            else:
+                j += 1
+        result.extend(p1[i:])
+        return result
 
 
 
