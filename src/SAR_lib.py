@@ -366,7 +366,7 @@ class SAR_Indexer:
         print('========================================')
         print(f'Number of indexed files: {self.nextdocid}')
         print('----------------------------------------')
-        print(f'Number of indexed files: {self.nextartid}')
+        print(f'Number of indexed articles: {self.nextartid}')
         print('----------------------------------------')
         print('TOKENS:')
         if self.multifield:
@@ -393,7 +393,7 @@ class SAR_Indexer:
     #################################
 
     ###################################
-    ###                             ###
+    ###                                 ###
     ###   PARTE 2.1: RECUPERACION   ###
     ###                             ###
     ###################################
@@ -407,68 +407,65 @@ class SAR_Indexer:
 
 
         param:  "query": cadena con la query
-                "prev": incluido por si se quiere hacer una version recursiva. No es necesario utilizarlo.
+                "prev": incluido
+                por si se quiere hacer una version recursiva. No es necesario utilizarlo.
 
 
         return: posting list con el resultado de la query
 
         """
 
-        if query is None or len(query) == 0:
-            return []
-
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-
-        # divide the query in tokens
-        query = self.tokenize(query)
         tokens = re.findall(self.queryOperationsRegex, query)
+        postfix = self.infix_to_postfix(tokens)
+        return self.evaluate_postfix(postfix)
 
-        output_stack = []  # stack to store the output
-        operator_stack = []  # stack to store operators
-
-        # Define the precedence of operators
-        precedence = {'(': 1, 'OR': 2, 'AND': 3, 'NOT': 4}
-
-        def apply_operator(op):
-            if op == 'AND':
-                right = output_stack.pop()
-                left = output_stack.pop()
-                result = self.and_posting(left, right)
-                output_stack.append(result)
-            elif op == 'OR':
-                right = output_stack.pop()
-                left = output_stack.pop()
-                result = self.or_posting(left, right)
-                output_stack.append(result)
-            elif op == 'NOT':
-                right = output_stack.pop()
-                result = self.reverse_posting(right)
-                output_stack.append(result)
+    def infix_to_postfix(self, tokens):
+        precedence = {'NOT': 3, 'AND': 2, 'OR': 1, '(': 0, ')': 0}
+        output = []
+        operator_stack = []
 
         for token in tokens:
-            if token in precedence:
-                if token == '(':
-                    operator_stack.append(token)
-                elif token == ')':
-                    while operator_stack and operator_stack[-1] != '(':
-                        apply_operator(operator_stack.pop())
-                    operator_stack.pop()  # Remove the '(' from stack
-                else:
-                    while (operator_stack and
-                           precedence[operator_stack[-1]] >= precedence[token]):
-                        apply_operator(operator_stack.pop())
-                    operator_stack.append(token)
+            if token == '(':
+                operator_stack.append(token)
+            elif token == ')':
+                while operator_stack and operator_stack[-1] != '(':
+                    output.append(operator_stack.pop())
+                operator_stack.pop()  # Descartar el paréntesis izquierdo
+            elif token in precedence:
+                while operator_stack and precedence[operator_stack[-1]] >= precedence[token]:
+                    output.append(operator_stack.pop())
+                operator_stack.append(token)
             else:
-                # Regular term, we push the posting list of the term to the output stack
-                output_stack.append(self.get_posting(token))
+                output.append(token)
 
         while operator_stack:
-            apply_operator(operator_stack.pop())
+            output.append(operator_stack.pop())
 
-        # The final result should be the only posting list in the output stack
-        return output_stack[-1] if output_stack else []
+        return output
+
+    def evaluate_postfix(self, postfix):
+        stack = []
+
+
+
+        for token in postfix:
+            if token not in ['AND', 'OR', 'NOT']:
+                stack.append(self.get_posting(token))
+            else:
+                if token == 'NOT':
+                    op1 = stack.pop()
+                    result = self.reverse_posting(op1)
+                else:
+                    op2 = stack.pop()
+                    op1 = stack.pop()
+                    if token == 'AND':
+                        result = self.and_posting(op1, op2)
+                    elif token == 'OR':
+                        result = self.or_posting(op1, op2)
+                stack.append(result)
+
+        return stack.pop()
+
 
 
 
@@ -491,12 +488,33 @@ class SAR_Indexer:
         NECESARIO PARA TODAS LAS VERSIONES
 
         """
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
-        if field:
-            return self.index.get(field, {}).get(term, [])
-        return self.index.get(term, [])
+        if field is None:
+            field = self.def_field
+
+        if term in self.index.get(field, {}):
+            return list(self.index[field][term].keys())
+        else:
+            return []
+
+        def flatten(nested_list):
+            for item in nested_list:
+                if isinstance(item, list):
+                    yield from flatten(item)
+                else:
+                    yield item
+
+        if field == None:
+            field = ['all']
+
+        postings_lists = []
+
+        for field in field:
+            postings_lists.append(list(self.index[field][term].keys()))
+
+        print(postings_lists[0])
+
+        return postings_lists[0]
+
 
     def get_positionals(self, terms: str, index):
         """
@@ -510,6 +528,7 @@ class SAR_Indexer:
         return: posting list
 
         """
+        #TODO
         pass
         ########################################################
         ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE POSICIONALES ##
@@ -567,14 +586,15 @@ class SAR_Indexer:
 
         """
 
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
 
-        all_post = list(self.docs.keys())
+        all_post = list(self.articles.keys())
         p_set = set(p)
         return [doc for doc in all_post if doc not in p_set]
+
+
 
 
     def and_posting(self, p1:list, p2:list):
@@ -589,11 +609,35 @@ class SAR_Indexer:
         return: posting list con los artid incluidos en p1 y p2
 
         """
+        result = []
+        i, j = 0, 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                result.append(p1[i])
+                i += 1
+                j += 1
+            elif p1[i] < p2[j]:
+                i += 1
+            else:
+                j += 1
+        return result
 
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
+
+        p1_len = len(p1)
+        p2_len = len(p2)
+        p1_pun, p2_pun = 0
+        out = []
+        while p1_pun < p1_len and p2_pun < p2_len:
+            if p1[p1_pun] == p2[p2_pun]:
+                out.append(p1)
+                p1_pun += 1
+                p2_pun += 1
+            else:
+                if p1[p1_pun] < p2[p2_pun]:
+                    p1_pun += 1
+                else:
+                    p2_pun += 1
+        return out
 
     def or_posting(self, p1: list, p2: list):
         """
@@ -608,10 +652,6 @@ class SAR_Indexer:
 
         """
 
-        pass
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
         result = []
         i, j = 0, 0
         while i < len(p1) and j < len(p2):
@@ -630,6 +670,8 @@ class SAR_Indexer:
         return result
 
 
+
+
     def minus_posting(self, p1, p2):
         """
         OPCIONAL PARA TODAS LAS VERSIONES
@@ -643,12 +685,6 @@ class SAR_Indexer:
         return: posting list con los artid incluidos de p1 y no en p2
 
         """
-
-        pass
-        ########################################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
-        ########################################################
-
         result = []
         i, j = 0, 0
         while i < len(p1) and j < len(p2):
@@ -700,7 +736,7 @@ class SAR_Indexer:
                     print(f'>>>>{query}\t{reference} != {result}<<<<')
                     errors = True
             else:
-                print(query)
+                print(line)
         return not errors
 
     def solve_and_show(self, query: str):

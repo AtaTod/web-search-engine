@@ -30,6 +30,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     indexer = SAR_Indexer()
+
+    print(indexer.and_posting([1, 2, 3], [2, 3, 4]))
+    print(indexer.or_posting([1, 2, 3], [2, 3, 4]))
+    print(indexer.minus_posting([1, 2, 3], [2, 3, 4]))
     t0 = time.time()
     indexer.index_dir(args.dir, **vars(args))
     t1 = time.time()
