@@ -34,7 +34,7 @@ class SAR_Indexer:
     all_atribs = ['urls', 'index', 'sindex', 'ptindex', 'docs', 'weight', 'articles',
                   'tokenizer', 'stemmer', 'show_all', 'use_stemming']
 
-    queryOperationsRegex = r'[\w-]+|AND|OR|NOT|\(|\)'
+    queryOperationsRegex = r'[\w:-]+|AND|OR|NOT|\(|\)'
 
     def __init__(self):
         """
@@ -428,7 +428,7 @@ class SAR_Indexer:
         return self.evaluate_postfix(postfix)
 
     def infix_to_postfix(self, tokens):
-        precedence = {'NOT': 3, 'AND': 2, 'OR': 1, '(': 0, ')': 0}
+        precedence = {'NOT': 3, 'OR': 2, 'AND': 1, '(': 0, ')': 0}
         output = []
         operator_stack = []
 
@@ -587,10 +587,21 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        all_post = sorted(self.articles.keys())
+        result = []
+        i, j = 0, 0
+        while i < len(all_post) and j < len(p):
+            if all_post[i] == p[j]:
+                i += 1
+                j += 1
+            elif all_post[i] < p[j]:
+                result.append(all_post[i])
+                i += 1
+            else:
+                j += 1
+        result.extend(all_post[i:])
+        return result
 
-        all_post = list(self.articles.keys())
-        p_set = set(p)
-        return [doc for doc in all_post if doc not in p_set]
 
 
 
@@ -748,7 +759,34 @@ class SAR_Indexer:
         return: el numero de artículo recuperadas, para la opcion -T
 
         """
-        pass
+
+
+
         ################
         ## COMPLETAR  ##
         ################
+
+        print("Query:", query)
+        result = self.solve_query(query)
+
+        for i, r in enumerate(result):
+            print(f'{i:<3} ({r:4}):')
+
+
+        print("Number of results:", len(result))
+
+        if self.show_snippet:
+            print("Snippets:")
+            for artid in result:
+                docid, url = self.articles[artid]
+                filename = self.docs[docid]
+                with open(filename) as f:
+                    article = json.load(f)
+                print(f"- {url}: {article['summary'][:100]}...")
+        else:
+            print("Results:")
+            for artid in result:
+                _, url = self.articles[artid]
+                print(f"- {url}")
+
+        return len(result)
