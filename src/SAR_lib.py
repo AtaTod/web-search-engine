@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Optional, List, Union, Dict
 import pickle
 
+
 class SAR_Indexer:
     """
     Prototipo de la clase para realizar la indexacion y la recuperacion de artículos de Wikipedia
@@ -32,6 +33,8 @@ class SAR_Indexer:
 
     all_atribs = ['urls', 'index', 'sindex', 'ptindex', 'docs', 'weight', 'articles',
                   'tokenizer', 'stemmer', 'show_all', 'use_stemming']
+
+    queryOperationsRegex = r'[\w-]+|AND|OR|NOT|\(|\)'
 
     def __init__(self):
         """
@@ -58,15 +61,13 @@ class SAR_Indexer:
         self.use_stemming = False # valor por defecto, se cambia con self.set_stemming()
         self.use_ranking = False  # valor por defecto, se cambia con self.set_ranking()
 
-
     ###############################
     ###                         ###
     ###      CONFIGURACION      ###
     ###                         ###
     ###############################
 
-
-    def set_showall(self, v:bool):
+    def set_showall(self, v: bool):
         """
 
         Cambia el modo de mostrar los resultados.
@@ -80,8 +81,7 @@ class SAR_Indexer:
         """
         self.show_all = v
 
-
-    def set_snippet(self, v:bool):
+    def set_snippet(self, v: bool):
         """
 
         Cambia el modo de mostrar snippet.
@@ -95,8 +95,7 @@ class SAR_Indexer:
         """
         self.show_snippet = v
 
-
-    def set_stemming(self, v:bool):
+    def set_stemming(self, v: bool):
         """
 
         Cambia el modo de stemming por defecto.
@@ -110,16 +109,13 @@ class SAR_Indexer:
         """
         self.use_stemming = v
 
-
-
     #############################################
     ###                                       ###
     ###      CARGA Y GUARDADO DEL INDICE      ###
     ###                                       ###
     #############################################
 
-
-    def save_info(self, filename:str):
+    def save_info(self, filename: str):
         """
         Guarda la información del índice en un fichero en formato binario
         
@@ -128,12 +124,12 @@ class SAR_Indexer:
         with open(filename, 'wb') as fh:
             pickle.dump(info, fh)
 
-    def load_info(self, filename:str):
+    def load_info(self, filename: str):
         """
         Carga la información del índice desde un fichero en formato binario
         
         """
-        #info = [self.all_atribs] + [getattr(self, atr) for atr in self.all_atribs]
+        # info = [self.all_atribs] + [getattr(self, atr) for atr in self.all_atribs]
         with open(filename, 'rb') as fh:
             info = pickle.load(fh)
         atrs = info[0]
@@ -146,7 +142,7 @@ class SAR_Indexer:
     ###                         ###
     ###############################
 
-    def already_in_index(self, article:Dict) -> bool:
+    def already_in_index(self, article: Dict) -> bool:
         """
 
         Args:
@@ -157,8 +153,7 @@ class SAR_Indexer:
         """
         return article['url'] in self.urls
 
-
-    def index_dir(self, root:str, **args):
+    def index_dir(self, root: str, **args):
         """
         
         Recorre recursivamente el directorio o fichero "root" 
@@ -174,16 +169,18 @@ class SAR_Indexer:
         self.permuterm = args['permuterm']
 
         file_or_dir = Path(root)
-        
+
         if file_or_dir.is_file():
             # is a file
+            self.generate_docid()
             self.index_file(root)
         elif file_or_dir.is_dir():
             # is a directory
             for d, _, files in os.walk(root):
-                for filename in files:
+                for filename in sorted(files):
                     if filename.endswith('.json'):
                         fullname = os.path.join(d, filename)
+                        self.generate_docid()
                         self.index_file(fullname)
         else:
             print(f"ERROR:{root} is not a file nor directory!", file=sys.stderr)
@@ -209,7 +206,8 @@ class SAR_Indexer:
         txt_secs = ''
         for sec in article['sections']:
             txt_secs += sec['name'] + '\n' + sec['text'] + '\n'
-            txt_secs += '\n'.join(subsec['name'] + '\n' + subsec['text'] + '\n' for subsec in sec['subsections']) + '\n\n'
+            txt_secs += '\n'.join(
+                subsec['name'] + '\n' + subsec['text'] + '\n' for subsec in sec['subsections']) + '\n\n'
             sec_names.append(sec['name'])
             sec_names.extend(subsec['name'] for subsec in sec['subsections'])
         article.pop('sections')  # no la necesitamos
@@ -299,11 +297,11 @@ class SAR_Indexer:
 
 
 
-    def set_stemming(self, v:bool):
+    def set_stemming(self, v: bool):
         """
 
         Cambia el modo de stemming por defecto.
-        
+
         input: "v" booleano.
 
         UTIL PARA LA VERSION CON STEMMING
@@ -313,8 +311,7 @@ class SAR_Indexer:
         """
         self.use_stemming = v
 
-
-    def tokenize(self, text:str):
+    def tokenize(self, text: str):
         """
         NECESARIO PARA TODAS LAS VERSIONES
 
@@ -328,7 +325,6 @@ class SAR_Indexer:
         """
         return self.tokenizer.sub(' ', text.lower()).split()
 
-
     def make_stemming(self):
         """
 
@@ -340,14 +336,12 @@ class SAR_Indexer:
 
 
         """
-        
+
         pass
         ####################################################
         ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE STEMMING ##
         ####################################################
 
-
-    
     def make_permuterm(self):
         """
 
@@ -362,15 +356,12 @@ class SAR_Indexer:
         ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE STEMMING ##
         ####################################################
 
-
-
-
     def show_stats(self):
         """
         NECESARIO PARA TODAS LAS VERSIONES
-        
+
         Muestra estadisticas de los indices
-        
+
         """
         print('========================================')
         print(f'Number of indexed files: {self.nextdocid}')
@@ -391,7 +382,7 @@ class SAR_Indexer:
             print('Positional queries are not allowed.')
         print('========================================')
 
-        
+
 
 
 
@@ -407,8 +398,7 @@ class SAR_Indexer:
     ###                             ###
     ###################################
 
-
-    def solve_query(self, query:str, prev:Dict={}):
+    def solve_query(self, query: str, prev: Dict = {}):
         """
         NECESARIO PARA TODAS LAS VERSIONES
 
@@ -486,7 +476,7 @@ class SAR_Indexer:
     def get_posting(self, term:str, field:Optional[str]=None):
         """
 
-        Devuelve la posting list asociada a un termino. 
+        Devuelve la posting list asociada a un termino.
         Dependiendo de las ampliaciones implementadas "get_posting" puede llamar a:
             - self.get_positionals: para la ampliacion de posicionales
             - self.get_permuterm: para la ampliacion de permuterms
@@ -497,7 +487,7 @@ class SAR_Indexer:
                 "field": campo sobre el que se debe recuperar la posting list, solo necesario si se hace la ampliacion de multiples indices
 
         return: posting list
-        
+
         NECESARIO PARA TODAS LAS VERSIONES
 
         """
@@ -508,7 +498,7 @@ class SAR_Indexer:
             return self.index.get(field, {}).get(term, [])
         return self.index.get(term, [])
 
-    def get_positionals(self, terms:str, index):
+    def get_positionals(self, terms: str, index):
         """
 
         Devuelve la posting list asociada a una secuencia de terminos consecutivos.
@@ -525,8 +515,7 @@ class SAR_Indexer:
         ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE POSICIONALES ##
         ########################################################
 
-
-    def get_stemming(self, term:str, field: Optional[str]=None):
+    def get_stemming(self, term: str, field: Optional[str] = None):
         """
 
         Devuelve la posting list asociada al stem de un termino.
@@ -538,14 +527,14 @@ class SAR_Indexer:
         return: posting list
 
         """
-        
+
         stem = self.stemmer.stem(term)
 
         ####################################################
         ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE STEMMING ##
         ####################################################
 
-    def get_permuterm(self, term:str, field:Optional[str]=None):
+    def get_permuterm(self, term: str, field: Optional[str] = None):
         """
 
         Devuelve la posting list asociada a un termino utilizando el indice permuterm.
@@ -563,9 +552,7 @@ class SAR_Indexer:
         ##################################################
         pass
 
-
-
-    def reverse_posting(self, p:list):
+    def reverse_posting(self, p: list):
         """
         NECESARIO PARA TODAS LAS VERSIONES
 
@@ -579,8 +566,8 @@ class SAR_Indexer:
         return: posting list con todos los artid exceptos los contenidos en p
 
         """
-        
 
+        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
@@ -603,25 +590,12 @@ class SAR_Indexer:
 
         """
 
+        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-        result = []
-        i, j = 0, 0
-        while i < len(p1) and j < len(p2):
-            if p1[i] == p2[j]:
-                result.append(p1[i])
-                i += 1
-                j += 1
-            elif p1[i] < p2[j]:
-                i += 1
-            else:
-                j += 1
-        return result
 
-
-
-    def or_posting(self, p1:list, p2:list):
+    def or_posting(self, p1: list, p2: list):
         """
         NECESARIO PARA TODAS LAS VERSIONES
 
@@ -670,6 +644,7 @@ class SAR_Indexer:
 
         """
 
+        pass
         ########################################################
         ## COMPLETAR PARA TODAS LAS VERSIONES SI ES NECESARIO ##
         ########################################################
@@ -698,7 +673,7 @@ class SAR_Indexer:
     ###                               ###
     #####################################
 
-    def solve_and_count(self, ql:List[str], verbose:bool=True) -> List:
+    def solve_and_count(self, ql: List[str], verbose: bool = True) -> List:
         results = []
         for query in ql:
             if len(query) > 0 and query[0] != '#':
@@ -712,8 +687,7 @@ class SAR_Indexer:
                     print(query)
         return results
 
-
-    def solve_and_test(self, ql:List[str]) -> bool:
+    def solve_and_test(self, ql: List[str]) -> bool:
         errors = False
         for line in ql:
             if len(line) > 0 and line[0] != '#':
@@ -724,17 +698,16 @@ class SAR_Indexer:
                     print(f'{query}\t{result}')
                 else:
                     print(f'>>>>{query}\t{reference} != {result}<<<<')
-                    errors = True                    
+                    errors = True
             else:
                 print(query)
         return not errors
 
-
-    def solve_and_show(self, query:str):
+    def solve_and_show(self, query: str):
         """
         NECESARIO PARA TODAS LAS VERSIONES
 
-        Resuelve una consulta y la muestra junto al numero de resultados 
+        Resuelve una consulta y la muestra junto al numero de resultados
 
         param:  "query": query que se debe resolver.
 
@@ -745,12 +718,3 @@ class SAR_Indexer:
         ################
         ## COMPLETAR  ##
         ################
-
-
-
-
-
-
-
-        
-
