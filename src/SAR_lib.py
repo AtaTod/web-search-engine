@@ -42,6 +42,8 @@ class SAR_Indexer:
         Puedes añadir más variables si las necesitas 
 
         """
+        self.nextdocid = 0
+        self.nextartid = 0
         self.urls = set() # hash para las urls procesadas,
         self.index = {} # hash para el indice invertido de terminos --> clave: termino, valor: posting list
         self.sindex = {} # hash para el indice invertido de stems --> clave: stem, valor: lista con los terminos que tienen ese stem
@@ -242,12 +244,12 @@ class SAR_Indexer:
         """
         for i, line in enumerate(open(filename)):
             article = self.parse_article(line)
+            if self.already_in_index(article):
+                continue
 
             self.urls.add(article['url'])
             artid = self.generate_artid()
             self.articles[artid] = (self.nextdocid - 1, article['url'])
-
-            # TODO ARTICLES NO ESTA DEL TODO BIEN
 
             if self.multifield:
                 if self.positional:
@@ -294,9 +296,6 @@ class SAR_Indexer:
             else:
                 self.index[field] = {token: {artid: 1}}
 
-    #################
-    ### COMPLETAR ###
-    #################
 
 
 
@@ -391,9 +390,6 @@ class SAR_Indexer:
         else:
             print('Positional queries are not allowed.')
         print('========================================')
-        ########################################
-        ## COMPLETAR PARA TODAS LAS VERSIONES ##
-        ########################################
 
         
 
