@@ -33,6 +33,8 @@ class SAR_Indexer:
     all_atribs = ['urls', 'index', 'sindex', 'ptindex', 'docs', 'weight', 'articles',
                   'tokenizer', 'stemmer', 'show_all', 'use_stemming']
 
+    queryOperationsRegex = r'[\w-]+|AND|OR|NOT|\(|\)'
+
     def __init__(self):
         """
         Constructor de la classe SAR_Indexer.
@@ -355,6 +357,7 @@ class SAR_Indexer:
     ###################################
 
 
+
     def solve_query(self, query:str, prev:Dict={}):
         """
         NECESARIO PARA TODAS LAS VERSIONES
@@ -377,6 +380,55 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+
+        # divide the query in tokens
+        query = self.tokenize(query)
+        tokens = re.findall(self.queryOperationsRegex, query)
+
+        output_stack = []  # stack to store the output
+        operator_stack = []  # stack to store operators
+
+        # Define the precedence of operators
+        precedence = {'(': 1, 'OR': 2, 'AND': 3, 'NOT': 4}
+
+        def apply_operator(op):
+            if op == 'AND':
+                right = output_stack.pop()
+                left = output_stack.pop()
+                result = self.and_posting(left, right)
+                output_stack.append(result)
+            elif op == 'OR':
+                right = output_stack.pop()
+                left = output_stack.pop()
+                result = self.or_posting(left, right)
+                output_stack.append(result)
+            elif op == 'NOT':
+                right = output_stack.pop()
+                result = self.reverse_posting(right)
+                output_stack.append(result)
+
+        for token in tokens:
+            if token in precedence:
+                if token == '(':
+                    operator_stack.append(token)
+                elif token == ')':
+                    while operator_stack and operator_stack[-1] != '(':
+                        apply_operator(operator_stack.pop())
+                    operator_stack.pop()  # Remove the '(' from stack
+                else:
+                    while (operator_stack and
+                           precedence[operator_stack[-1]] >= precedence[token]):
+                        apply_operator(operator_stack.pop())
+                    operator_stack.append(token)
+            else:
+                # Regular term, we push the posting list of the term to the output stack
+                output_stack.append(self.get_posting(token))
+
+        while operator_stack:
+            apply_operator(operator_stack.pop())
+
+        # The final result should be the only posting list in the output stack
+        return output_stack[-1] if output_stack else []
 
 
 
@@ -402,7 +454,9 @@ class SAR_Indexer:
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
-        pass
+        if field:
+            return self.index.get(field, {}).get(term, [])
+        return self.index.get(term, [])
 
     def get_positionals(self, terms:str, index):
         """
@@ -476,11 +530,14 @@ class SAR_Indexer:
 
         """
         
-        pass
+
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
 
+        all_post = list(self.docs.keys())
+        p_set = set(p)
+        return [doc for doc in all_post if doc not in p_set]
 
 
     def and_posting(self, p1:list, p2:list):
@@ -495,11 +552,22 @@ class SAR_Indexer:
         return: posting list con los artid incluidos en p1 y p2
 
         """
-        
-        pass
+
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        result = []
+        i, j = 0, 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                result.append(p1[i])
+                i += 1
+                j += 1
+            elif p1[i] < p2[j]:
+                i += 1
+            else:
+                j += 1
+        return result
 
 
 
@@ -516,10 +584,25 @@ class SAR_Indexer:
 
         """
 
-        pass
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
+        result = []
+        i, j = 0, 0
+        while i < len(p1) and j < len(p2):
+            if p1[i] == p2[j]:
+                result.append(p1[i])
+                i += 1
+                j += 1
+            elif p1[i] < p2[j]:
+                result.append(p1[i])
+                i += 1
+            else:
+                result.append(p2[j])
+                j += 1
+        result.extend(p1[i:])
+        result.extend(p2[j:])
+        return result
 
 
     def minus_posting(self, p1, p2):
