@@ -172,7 +172,7 @@ class SAR_Indexer:
 
         if file_or_dir.is_file():
             # is a file
-            self.generate_docid()
+            self.docs[self.generate_docid()] = {file_or_dir}
             self.index_file(root)
         elif file_or_dir.is_dir():
             # is a directory
@@ -180,7 +180,7 @@ class SAR_Indexer:
                 for filename in sorted(files):
                     if filename.endswith('.json'):
                         fullname = os.path.join(d, filename)
-                        self.generate_docid()
+                        self.docs[self.generate_docid()] = {file_or_dir}
                         self.index_file(fullname)
         else:
             print(f"ERROR:{root} is not a file nor directory!", file=sys.stderr)
@@ -337,10 +337,18 @@ class SAR_Indexer:
 
         """
 
-        pass
-        ####################################################
-        ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE STEMMING ##
-        ####################################################
+        # Recorre todos los campos del indice
+        for field in self.index:
+            # Recorre todos los terminos de cada campo
+            for term in self.index[field]:
+                # Obtiene el stem del termino
+                stem = self.stemmer.stem(term)
+                # Añade el termino al indice de stems de su stem correspondiente
+                if stem in self.sindex:
+                    self.sindex[stem].add(term)
+                else:
+                    # Si todavia no existe el stem en el indice de stems, lo crea
+                    self.sindex[stem] = {term}
 
     def make_permuterm(self):
         """
@@ -450,7 +458,11 @@ class SAR_Indexer:
 
         for token in postfix:
             if token not in ['AND', 'OR', 'NOT']:
-                stack.append(self.get_posting(token))
+                if ':' in token:
+                    terms = token.split(':')
+                    stack.append(self.get_posting(terms[1], terms[0]))
+                else:
+                    stack.append(self.get_posting(token))
             else:
                 if token == 'NOT':
                     op1 = stack.pop()
@@ -488,32 +500,18 @@ class SAR_Indexer:
         NECESARIO PARA TODAS LAS VERSIONES
 
         """
+
+        #{'all', 'title', 'summary', 'section-name', 'url'}
+
         if field is None:
-            field = self.def_field
-
-        if term in self.index.get(field, {}):
-            return list(self.index[field][term].keys())
-        else:
-            return []
-
-        def flatten(nested_list):
-            for item in nested_list:
-                if isinstance(item, list):
-                    yield from flatten(item)
-                else:
-                    yield item
-
-        if field == None:
-            field = ['all']
+            field = 'all'
 
         postings_lists = []
 
-        for field in field:
-            postings_lists.append(list(self.index[field][term].keys()))
+        if term.lower() in self.index[field]:
+            postings_lists = list(self.index[field][term.lower()].keys())
 
-        print(postings_lists[0])
-
-        return postings_lists[0]
+        return postings_lists
 
 
     def get_positionals(self, terms: str, index):
