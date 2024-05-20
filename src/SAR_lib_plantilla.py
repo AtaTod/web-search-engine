@@ -179,7 +179,7 @@ class SAR_Indexer:
         elif file_or_dir.is_dir():
             # is a directory
             for d, _, files in os.walk(root):
-                for filename in files:
+                for filename in sorted(files):
                     if filename.endswith('.json'):
                         fullname = os.path.join(d, filename)
                         self.index_file(fullname)
@@ -568,9 +568,11 @@ class SAR_Indexer:
                     print(f'{query}\t{result}')
                 else:
                     print(f'>>>>{query}\t{reference} != {result}<<<<')
-                    errors = True                    
+                    errors = True
+
             else:
-                print(query)
+                print(line)
+
         return not errors
 
 
