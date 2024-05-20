@@ -771,6 +771,7 @@ class SAR_Indexer:
 
         for i, r in enumerate(result):
             print(f'{i:<3} ({r:4}):')
+        #self.articles[artid] = (self.nextdocid - 1, article['url'])
 
 
         print("Number of results:", len(result))
