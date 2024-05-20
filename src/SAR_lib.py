@@ -167,12 +167,12 @@ class SAR_Indexer:
         self.positional = args['positional']
         self.stemming = args['stem']
         self.permuterm = args['permuterm']
-
+        self.set_showall(args['stem'])
         file_or_dir = Path(root)
 
         if file_or_dir.is_file():
             # is a file
-            self.docs[self.generate_docid()] = {file_or_dir}
+            self.docs[self.generate_docid()] = {root}
             self.index_file(root)
         elif file_or_dir.is_dir():
             # is a directory
@@ -180,15 +180,14 @@ class SAR_Indexer:
                 for filename in sorted(files):
                     if filename.endswith('.json'):
                         fullname = os.path.join(d, filename)
-                        self.docs[self.generate_docid()] = {file_or_dir}
+                        self.docs[self.generate_docid()] = {fullname}
                         self.index_file(fullname)
         else:
             print(f"ERROR:{root} is not a file nor directory!", file=sys.stderr)
             sys.exit(-1)
 
-        ##########################################
-        ## COMPLETAR PARA FUNCIONALIDADES EXTRA ##
-        ##########################################
+        if self.stemming:
+            self.make_stemming()
 
     def parse_article(self, raw_line: str) -> Dict[str, str]:
         """
@@ -336,19 +335,14 @@ class SAR_Indexer:
 
 
         """
+        for field in list(self.index.keys()):
+            self.sindex[field] = {}
+            for token in list(self.index[field].keys()):
+                stem = self.stemmer.stem(token)
+                if stem not in self.sindex[field]:
+                    self.sindex[field][stem] = []
+                self.sindex[field][stem].append(token)
 
-        # Recorre todos los campos del indice
-        for field in self.index:
-            # Recorre todos los terminos de cada campo
-            for term in self.index[field]:
-                # Obtiene el stem del termino
-                stem = self.stemmer.stem(term)
-                # Añade el termino al indice de stems de su stem correspondiente
-                if stem in self.sindex:
-                    self.sindex[stem].add(term)
-                else:
-                    # Si todavia no existe el stem en el indice de stems, lo crea
-                    self.sindex[stem] = {term}
 
     def make_permuterm(self):
         """
@@ -383,6 +377,15 @@ class SAR_Indexer:
         else:
             field = 'all'
             print(f'\t# of tokens in \'{field}\': {len(self.index[field])}')
+        if self.stemming:
+            print('----------------------------------------')
+            print('STEMS:')
+            if self.multifield:
+                for field in {'all', 'title', 'summary', 'section-name', 'url'}:
+                    print(f'\t# of tokens in \'{field}\': {len(self.sindex[field])}')
+            else:
+                field = 'all'
+                print(f'\t# of tokens in \'{field}\': {len(self.sindex[field])}')
         print('----------------------------------------')
         if self.positional:
             print('Positional queries are allowed.')
@@ -401,7 +404,7 @@ class SAR_Indexer:
     #################################
 
     ###################################
-    ###                                 ###
+    ###                             ###
     ###   PARTE 2.1: RECUPERACION   ###
     ###                             ###
     ###################################
@@ -422,7 +425,6 @@ class SAR_Indexer:
         return: posting list con el resultado de la query
 
         """
-
         tokens = re.findall(self.queryOperationsRegex, query)
         postfix = self.infix_to_postfix(tokens)
         return self.evaluate_postfix(postfix)
@@ -500,6 +502,8 @@ class SAR_Indexer:
         NECESARIO PARA TODAS LAS VERSIONES
 
         """
+        if self.use_stemming:
+            return self.get_stemming(term, field)
 
         #{'all', 'title', 'summary', 'section-name', 'url'}
 
@@ -526,6 +530,7 @@ class SAR_Indexer:
         return: posting list
 
         """
+
         #TODO
         pass
         ########################################################
@@ -547,9 +552,16 @@ class SAR_Indexer:
 
         stem = self.stemmer.stem(term)
 
-        ####################################################
-        ## COMPLETAR PARA FUNCIONALIDAD EXTRA DE STEMMING ##
-        ####################################################
+        if field is None:
+            field = 'all'
+
+        postings_lists = []
+
+        if stem.lower() in self.sindex[field]:
+            for term in list(self.sindex[field][stem.lower()]):
+                postings_lists += list(self.index[field][term].keys())
+
+        return list(set(postings_lists))
 
     def get_permuterm(self, term: str, field: Optional[str] = None):
         """
@@ -760,34 +772,22 @@ class SAR_Indexer:
 
         """
 
-
-
-        ################
-        ## COMPLETAR  ##
-        ################
-
         print("Query:", query)
         result = self.solve_query(query)
 
         for i, r in enumerate(result):
-            print(f'{i:<3} ({r:4}):')
-        #self.articles[artid] = (self.nextdocid - 1, article['url'])
-
-
-        print("Number of results:", len(result))
-
-        if self.show_snippet:
-            print("Snippets:")
-            for artid in result:
-                docid, url = self.articles[artid]
-                filename = self.docs[docid]
-                with open(filename) as f:
-                    article = json.load(f)
-                print(f"- {url}: {article['summary'][:100]}...")
-        else:
-            print("Results:")
-            for artid in result:
-                _, url = self.articles[artid]
-                print(f"- {url}")
+            docid, url = self.articles[r]
+            filename = self.docs[docid]
+            title = ''
+            sumary = ''
+            for i, line in enumerate(open(list(filename)[0])):
+                article = self.parse_article(line)
+                if article['url'] == url:
+                    title = article['title']
+                    sumary = article['summary'].strip()[:100]
+                    sumary = sumary.replace('\n', ' ')
+                print(f'{i:3} ({r:4}): {title} \t{url}')
+                if self.show_snippet:
+                    print(sumary + '...')
 
         return len(result)
