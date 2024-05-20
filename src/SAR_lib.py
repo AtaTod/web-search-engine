@@ -247,12 +247,24 @@ class SAR_Indexer:
 
             # TODO ARTICLES NO ESTA DEL TODO BIEN
 
-            if self.positional:
-                self.index_pos(article, 'all', artid)
+            if self.multifield:
+                if self.positional:
+                    self.index_pos(article, 'url', artid)
+                    self.index_pos(article, 'title', artid)
+                    self.index_pos(article, 'summary', artid)
+                    self.index_pos(article, 'all', artid)
+                    self.index_pos(article, 'section-name', artid)
+                else:
+                    self.index_no_pos(article, 'url', artid)
+                    self.index_no_pos(article, 'title', artid)
+                    self.index_no_pos(article, 'summary', artid)
+                    self.index_no_pos(article, 'all', artid)
+                    self.index_no_pos(article, 'section-name', artid)
             else:
-                self.index_pos(article, 'all', artid)
-        print(self.index['all']['casa'])
-        print("\n")
+                if self.positional:
+                    self.index_pos(article, 'all', artid)
+                else:
+                    self.index_no_pos(article, 'all', artid)
 
     def index_pos(self, article: dict, field, artid: int):
         for pos, token in enumerate(self.tokenize(article[field])):
@@ -267,7 +279,7 @@ class SAR_Indexer:
             else:
                 self.index[field] = {token: {artid: [pos]}}
 
-    def index_no_pos(self, article: str, field, artid: int):
+    def index_no_pos(self, article: dict, field, artid: int):
         for pos, token in enumerate(self.tokenize(article[field])):
             if field in self.index:
                 if token in self.index[field]:
@@ -350,7 +362,24 @@ class SAR_Indexer:
         Muestra estadisticas de los indices
 
         """
-        pass
+        print('========================================')
+        print(f'Number of indexed files: {self.nextdocid}')
+        print('----------------------------------------')
+        print(f'Number of indexed files: {self.nextartid}')
+        print('----------------------------------------')
+        print('TOKENS:')
+        if self.multifield:
+            for field in {'all', 'title', 'summary', 'section-name', 'url'}:
+                print(f'\t# of tokens in \'{field}\': {len(self.index[field])}')
+        else:
+            field = 'all'
+            print(f'\t# of tokens in \'{field}\': {len(self.index[field])}')
+        print('----------------------------------------')
+        if self.positional:
+            print('Positional queries are allowed.')
+        else:
+            print('Positional queries are not allowed.')
+        print('========================================')
         ########################################
         ## COMPLETAR PARA TODAS LAS VERSIONES ##
         ########################################
